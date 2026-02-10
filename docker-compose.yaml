@@ -3,9 +3,7 @@ services:
     build: 
       context: ./app
       dockerfile: Dockerfile
-    container_name: backend-app
-    ports:
-      - "5000:5000"
+    network_mode: "service:provider"
     depends_on:
       - provider
 
@@ -15,18 +13,25 @@ services:
     container_name: backend-provider
     ports:
       - "3001:3001"
+      - "5000:5000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:3001/docs\")'"]
+      interval: 5s
+      timeout: 2s
+      retries: 3
 
   load-test:
-    profiles: ["test"]
     image: grafana/k6:latest
     volumes:
       - ./platform/k6:/scripts
     entrypoint: ["k6", "run", "--out", "influxdb=http://influxdb:8086/k6", "/scripts/test.js"]
     environment:
-      - TARGET_URL=http://app:5000
+      - TARGET_URL=http://provider:5000
     depends_on:
-      - app
-      - influxdb
+      provider:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
 
   influxdb:
     image: influxdb:1.8
@@ -35,6 +40,11 @@ services:
       - ./platform/influxdb:/docker-entrypoint-initdb.d
     environment:
       - INFLUXDB_DB=k6
+    healthcheck:
+      test: ["CMD", "influx", "-execute", "show databases"]
+      interval: 5s
+      timeout: 2s
+      retries: 3
 
   grafana:
     image: grafana/grafana:latest
@@ -50,7 +60,6 @@ services:
       - influxdb
 
   provider-check:
-    profiles: ["tools"]
     image: grafana/k6:latest
     container_name: backend-provider-check
     volumes:
