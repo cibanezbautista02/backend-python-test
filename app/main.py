@@ -4,10 +4,14 @@ import requests
 import os
 from fastapi import HTTPException, status
 from record import RequestBody, ResponseCreated, NotificationStatus, SendProcessingRequest, StatusResponse
+import config
 
 provider_url = "http://localhost:3001/v1/notify"
 bbdd_path = "storage/bbdd.json"
-headers = {"X-API-Key": "test-dev-2026"}
+
+"""Leemos la apikey del config.py
+para simular esa mayor seguridad en nuestro codigo"""
+headers = {"X-API-Key": config.API_KEY}
 
 os.makedirs("storage", exist_ok=True)
 
